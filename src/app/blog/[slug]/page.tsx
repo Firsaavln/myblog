@@ -1,146 +1,90 @@
 import { createClient } from '@/utils/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronLeft, Calendar, User } from 'lucide-react'
+import { ArrowLeft, Calendar, User, Share2, Bookmark } from 'lucide-react'
 import LikeButton from '@/components/LikeButton'
 import CommentSection from '@/components/CommentSection'
 
-// 1. SEO & Metadata Dinamis
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params
-  const supabase = await createClient()
-  
-  const { data: post } = await supabase
-    .from('posts')
-    .select('title, content, image_url')
-    .eq('slug', slug)
-    .single()
-
-  if (!post) return { title: 'Artikel Tidak Ditemukan' }
-
-  return {
-    title: `${post.title} | Modern Blog`,
-    description: post.content.substring(0, 160).replace(/<[^>]*>/g, ''), // Hapus tag HTML untuk deskripsi
-    openGraph: {
-      title: post.title,
-      description: post.content.substring(0, 160).replace(/<[^>]*>/g, ''),
-      images: post.image_url ? [post.image_url] : [],
-    },
-  }
-}
-
-// 2. Halaman Utama Artikel
 export default async function PostDetail({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const supabase = await createClient()
 
-  // Ambil data artikel, profil penulis, dan session user sekaligus
   const [postResponse, userResponse] = await Promise.all([
-    supabase
-      .from('posts')
-      .select('*, profiles(full_name, avatar_url)')
-      .eq('slug', slug)
-      .single(),
+    supabase.from('posts').select('*, profiles(full_name, avatar_url)').eq('slug', slug).single(),
     supabase.auth.getUser()
   ])
 
   const { data: post, error } = postResponse
   const { user } = userResponse.data
 
-  if (error || !post) {
-    notFound()
-  }
+  if (error || !post) notFound()
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Progress Bar & Nav Minimalis */}
-      <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b">
-        <div className="max-w-3xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-1 text-sm font-medium hover:text-blue-600 transition">
-            <ChevronLeft size={18} />
-            Kembali
-          </Link>
-          <div className="hidden md:block text-sm font-bold truncate max-w-[200px]">
-            {post.title}
-          </div>
-          <div className="w-10"></div> {/* Spacer */}
-        </div>
-      </nav>
+    <div className="bg-white min-h-screen">
+      <article className="max-w-3xl mx-auto py-16 px-6">
+        
+        {/* Navigasi Kembali */}
+        <Link href="/" className="inline-flex items-center gap-2 text-gray-500 hover:text-blue-600 transition-colors font-medium text-sm mb-12">
+          <ArrowLeft size={18} /> Kembali ke Beranda
+        </Link>
 
-      <article className="max-w-3xl mx-auto py-12 px-6">
         {/* Header Artikel */}
-        <header className="mb-10 text-center md:text-left">
-          <h1 className="text-4xl md:text-5xl font-black mb-6 leading-tight text-gray-900">
+        <header className="mb-12">
+          {/* Label/Kategori (Opsional, bisa diubah dinamis nanti) */}
+          <span className="bg-blue-50 text-blue-600 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider mb-4 inline-block">
+            Technology
+          </span>
+          
+          <h1 className="text-4xl md:text-5xl font-black text-gray-900 leading-tight mb-6">
             {post.title}
           </h1>
-          
-          <div className="flex flex-wrap items-center justify-center md:justify-start gap-6 text-gray-500 text-sm">
-            <div className="flex items-center gap-2">
-              <img 
-                src={post.profiles?.avatar_url || 'https://via.placeholder.com/40'} 
-                alt="Author" 
-                className="w-8 h-8 rounded-full border"
-              />
-              <span className="font-semibold text-gray-900">{post.profiles?.full_name}</span>
+
+          <div className="flex flex-wrap items-center justify-between border-y border-gray-100 py-4">
+            <div className="flex items-center gap-4">
+              <img src={post.profiles?.avatar_url || 'https://via.placeholder.com/40'} className="w-10 h-10 rounded-full border border-gray-200" />
+              <div>
+                <p className="font-semibold text-gray-900 text-sm flex items-center gap-1">
+                  <User size={14} className="text-gray-400" /> {post.profiles?.full_name}
+                </p>
+                <p className="text-gray-500 text-xs flex items-center gap-1 mt-0.5">
+                  <Calendar size={14} /> {new Date(post.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </p>
+              </div>
             </div>
-            <div className="flex items-center gap-1">
-              <Calendar size={16} />
-              {new Date(post.created_at).toLocaleDateString('id-ID', { 
-                day: 'numeric', month: 'long', year: 'numeric' 
-              })}
+
+            {/* Aksi Share & Save */}
+            <div className="flex items-center gap-3 text-gray-400">
+              <button className="p-2 hover:bg-gray-50 hover:text-blue-600 rounded-full transition"><Share2 size={18} /></button>
+              <button className="p-2 hover:bg-gray-50 hover:text-blue-600 rounded-full transition"><Bookmark size={18} /></button>
             </div>
           </div>
         </header>
 
-        {/* Gambar Utama */}
+        {/* Gambar Cover */}
         {post.image_url && (
-          <div className="mb-12 rounded-3xl overflow-hidden shadow-2xl">
-            <img 
-              src={post.image_url} 
-              alt={post.title} 
-              className="w-full h-auto object-cover max-h-[500px]"
-            />
+          <div className="mb-14 rounded-2xl overflow-hidden shadow-lg border border-gray-100">
+            <img src={post.image_url} alt={post.title} className="w-full h-auto object-cover" />
           </div>
         )}
 
-        {/* Isi Konten (TipTap HTML) */}
-        {/* 'prose' adalah class dari tailwind typography */}
+        {/* Konten Artikel */}
         <div 
-          className="prose prose-lg prose-blue max-w-none mb-16 
-          prose-headings:font-black prose-a:text-blue-600 
-          prose-img:rounded-2xl prose-pre:bg-gray-900"
+          className="prose prose-lg prose-blue max-w-none prose-headings:font-bold prose-headings:tracking-tight prose-p:text-gray-600 prose-p:leading-relaxed prose-img:rounded-xl"
           dangerouslySetInnerHTML={{ __html: post.content }}
         />
 
-        {/* AdSense Slot 1 (Contoh Penempatan) */}
-        <div className="my-10 p-4 bg-gray-50 border border-dashed rounded-xl text-center text-gray-400 text-xs uppercase tracking-widest">
-          Iklan AdSense di Sini
+        <hr className="my-16 border-gray-100" />
+
+        {/* Interaksi Bawah */}
+        <div className="bg-gray-50 p-8 rounded-3xl border border-gray-100">
+          <div className="flex items-center gap-4 mb-10">
+            <LikeButton postId={post.id} userId={user?.id} />
+            <span className="text-sm text-gray-500 font-medium">Berikan apresiasi jika tulisan ini bermanfaat.</span>
+          </div>
+          <CommentSection postId={post.id} user={user} />
         </div>
 
-        <hr className="border-gray-100 my-10" />
-
-        {/* Footer Artikel & Interaksi */}
-        <footer className="space-y-12">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <LikeButton postId={post.id} userId={user?.id} />
-              <p className="text-sm text-gray-500 italic">
-                Suka dengan artikel ini? Klik ikon hati!
-              </p>
-            </div>
-          </div>
-
-          {/* Section Komentar */}
-          <section className="bg-gray-50 -mx-6 px-6 py-12 rounded-t-[3rem]">
-            <CommentSection postId={post.id} user={user} />
-          </section>
-        </footer>
       </article>
-
-      {/* Footer Minimalis */}
-      <footer className="py-12 border-t text-center text-gray-400 text-sm">
-        © {new Date().getFullYear()} Modern Blog. Built with Next.js & Supabase.
-      </footer>
     </div>
   )
 }
