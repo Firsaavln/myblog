@@ -13,14 +13,24 @@ export default function Navbar() {
   
   const supabase = createClient()
   const router = useRouter()
-  const pathname = usePathname() // Mendeteksi halaman saat ini
+  const pathname = usePathname()
 
   // Mengecek apakah kita sedang di halaman login/register
   const isAuthPage = pathname === '/login' || pathname === '/register'
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user))
-  }, [pathname]) // Re-check user setiap pindah halaman
+    const getUserData = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        // Ambil role dari tabel profiles
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+        setUser({ ...user, role: profile?.role }) // Simpan role ke state user
+      } else {
+        setUser(null)
+      }
+    }
+    getUserData()
+  }, [pathname])
 
   const handleLogout = async () => {
     setIsLoggingOut(true)
@@ -35,7 +45,7 @@ export default function Navbar() {
   const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && searchQuery.trim()) {
       router.push(`/?q=${searchQuery}`)
-      setIsMobileMenuOpen(false) // Tutup menu di mobile setelah cari
+      setIsMobileMenuOpen(false) 
     }
   }
 
@@ -86,10 +96,14 @@ export default function Navbar() {
           {!isAuthPage && (
             user ? (
               <div className="flex items-center gap-4 pl-4 border-l border-gray-100">
-                <Link href="/admin/create" className="flex items-center gap-2 text-sm font-bold text-gray-600 hover:text-blue-600 transition-colors" title="Tulis Artikel">
-                  <PenSquare size={18} />
-                  <span>Tulis</span>
-                </Link>
+                
+                {/* REVISI: HANYA MUNCUL JIKA USER ADALAH ADMIN */}
+                {user.role === 'admin' && (
+                  <Link href="/admin/create" className="flex items-center gap-2 text-sm font-bold text-gray-600 hover:text-blue-600 transition-colors" title="Tulis Artikel">
+                    <PenSquare size={18} />
+                    <span>Tulis</span>
+                  </Link>
+                )}
                 
                 <div className="flex items-center gap-3">
                   <img 
@@ -157,13 +171,18 @@ export default function Navbar() {
           {!isAuthPage && (
             user ? (
               <div className="flex flex-col gap-4">
-                <Link href="/admin/create" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 text-gray-700 font-bold">
-                  <PenSquare size={18} className="text-blue-600" /> Tulis Artikel Baru
-                </Link>
+                
+                {/* REVISI: HANYA MUNCUL JIKA USER ADALAH ADMIN DI MOBILE */}
+                {user.role === 'admin' && (
+                  <Link href="/admin/create" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 text-gray-700 font-bold">
+                    <PenSquare size={18} className="text-blue-600" /> Tulis Artikel Baru
+                  </Link>
+                )}
+
                 <div className="flex items-center justify-between bg-gray-50 p-4 rounded-2xl border border-gray-100">
                   <div className="flex items-center gap-3">
                     <img src={user.user_metadata?.avatar_url || 'https://ui-avatars.com/api/?name=User&background=DBEAFE&color=2563EB'} className="w-10 h-10 rounded-full" />
-                    <span className="font-bold text-sm truncate max-w-[150px]">{user.user_metadata?.full_name || 'Penulis'}</span>
+                    <span className="font-bold text-sm truncate max-w-[150px]">{user.user_metadata?.full_name || 'User'}</span>
                   </div>
                   <button onClick={handleLogout} className="text-red-500 bg-red-50 p-2 rounded-lg"><LogOut size={18} /></button>
                 </div>

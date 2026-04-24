@@ -1,9 +1,10 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react' // Tambahkan useEffect
 import { uploadImage } from '@/utils/supabase/storage'
 import { createClient } from '@/utils/supabase/client'
 import { useRouter } from 'next/navigation'
 import { ImagePlus, Send, LayoutDashboard } from 'lucide-react'
+import toast from 'react-hot-toast' // Import library toast
 
 export default function CreatePost() {
   const [title, setTitle] = useState('')
@@ -13,9 +14,31 @@ export default function CreatePost() {
   const router = useRouter()
   const supabase = createClient()
 
+  // BLOK KEAMANAN: Cek apakah yang buka halaman ini adalah Admin
+  useEffect(() => {
+    const checkAdmin = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      // Jika belum login, lempar ke login
+      if (!user) return router.push('/login')
+      
+      // Cek role di tabel profiles
+      const { data } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+      
+      if (data?.role !== 'admin') {
+        toast.error('Akses ditolak. Anda bukan admin.')
+        router.push('/') // Usir user biasa ke Home
+      }
+    }
+    checkAdmin()
+  }, [router, supabase])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
+    
+    // Munculkan toast loading di tengah layar
+    const toastId = toast.loading('Mempublikasikan artikel...')
 
     try {
       let imageUrl = ''
@@ -28,10 +51,16 @@ export default function CreatePost() {
       ])
 
       if (error) throw error
-      alert('Artikel berhasil tayang!')
-      router.push('/')
-    } catch (err) {
-      alert('Gagal posting artikel')
+      
+      // Ganti alert dengan toast sukses
+      toast.success('Artikel berhasil tayang!', { id: toastId })
+      
+      // Beri jeda 1.5 detik agar animasi toast selesai sebelum pindah halaman
+      setTimeout(() => router.push('/'), 1500)
+      
+    } catch (err: any) {
+      // Ganti alert dengan toast error
+      toast.error(err.message || 'Gagal mempublikasikan artikel', { id: toastId })
     } finally {
       setLoading(false)
     }
